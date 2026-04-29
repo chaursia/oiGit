@@ -44,8 +44,17 @@ export default function UserProfile() {
     queryFn: async () => {
       const response = await fetch(`/api/user/${username}`);
       if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.error || "Failed to fetch stats");
+        // Safely parse error: some environments return HTML/text on errors
+        const contentType = response.headers.get("content-type") ?? "";
+        if (contentType.includes("application/json")) {
+          const err = await response.json();
+          throw new Error(err.error || "Failed to fetch stats");
+        } else {
+          const text = await response.text();
+          // Extract a meaningful snippet if it's an HTML page
+          const match = text.match(/<title>([^<]*)<\/title>/i);
+          throw new Error(match?.[1] ?? text.slice(0, 120) ?? "Failed to fetch stats");
+        }
       }
       return response.json();
     },
